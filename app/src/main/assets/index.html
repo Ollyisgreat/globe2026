@@ -11,7 +11,7 @@
 <body>
 <div id="stage">
   <section id="video">
-    <div id="player"></div>
+    <div id="playerBox"><div id="player"></div></div>
     <div id="videoMsg" class="video-msg"></div>
     <div id="ctl" class="ctl">
       <div class="ctl-top"><div class="ctl-title" id="ctlTitle"></div><div class="ctl-seek" id="ctlSeek"></div></div>
@@ -63,6 +63,7 @@
     </div>
     <div id="evList" class="ev-list"></div>
     <button id="evAdd" class="btn add" data-nav>+ Add an event</button>
+    <div class="opts"><button id="qBtn" class="btn" data-nav>Video quality: 720p</button><span id="qNote">Lower quality plays more smoothly on a Firestick.</span></div>
     <form id="evForm" class="ev-form" autocomplete="off">
       <h3 id="fHead">Add an event</h3>
       <label>Name<input id="fName" data-nav placeholder="e.g. Miss Globe 2026 Final"></label>

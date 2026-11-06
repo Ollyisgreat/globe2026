@@ -36,6 +36,7 @@
   var mode = 'main';
   function setMode(m) {
     mode = m;
+    setTimeout(function () { if (window.fitPlayer2) fitPlayer2(); }, 50);
     document.body.classList.toggle('recap-on', m === 'recap');
     document.body.classList.toggle('menu-on', m === 'menu');
     try { native.setMode(m); } catch (e) {}
@@ -208,6 +209,7 @@
 
   function setBoard(on) {
     document.body.classList.toggle('board-off', !on);
+    setTimeout(function () { if (window.fitPlayer2) fitPlayer2(); }, 400);
     store.set('boardOn', on);
   }
 
@@ -301,6 +303,34 @@
     var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
     return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (x < 10 ? '0' : '') + x;
   }
+
+
+  /* ---------------- Video quality ----------------
+   * YouTube chooses its stream quality from the player's size on screen, so for
+   * 720p / 480p the player is laid out at that size and scaled up to fill the
+   * video area. Less to decode = smoother on a Firestick. */
+  var QUALITIES = ['720', '480', 'auto'];
+  var quality = store.get('quality', '720');
+  function fitPlayer() {
+    var v = $('video'), box = $('playerBox'), W = v.clientWidth, H = v.clientHeight;
+    if (!W || !H) return;
+    var dpr = window.devicePixelRatio || 1, target = quality === 'auto' ? 0 : Number(quality);
+    var videoH = Math.min(H, W * 9 / 16);          // height of the 16:9 picture itself
+    var s = target ? Math.min(1, target / (videoH * dpr)) : 1;
+    box.style.width = (W * s) + 'px'; box.style.height = (H * s) + 'px';
+    box.style.transform = s < 1 ? 'scale(' + (1 / s) + ')' : '';
+  }
+  function setQuality(q) {
+    quality = q; store.set('quality', q); fitPlayer();
+    $('qBtn').textContent = 'Video quality: ' + (q === 'auto' ? 'Auto (best)' : q + 'p');
+  }
+  $('qBtn').addEventListener('click', function () {
+    setQuality(QUALITIES[(QUALITIES.indexOf(quality) + 1) % QUALITIES.length]);
+    toast('Video quality: ' + (quality === 'auto' ? 'Auto' : quality + 'p') + ' — takes effect in a few seconds', 2500);
+  });
+  window.fitPlayer2 = fitPlayer;
+  window.addEventListener('resize', fitPlayer);
+  $('video').addEventListener('transitionend', fitPlayer);
 
   /* ---------------- Player control bar ----------------
    * OK shows the bar (and plays/pauses). With the bar open, ◀ ▶ move between
@@ -760,6 +790,7 @@
 
   /* ---------------- Start ---------------- */
   setBoard(store.get('boardOn', true));
+  setQuality(quality);
   render();
   poll(); setInterval(poll, POLL_MS);
   setInterval(renderFoot, 5000);

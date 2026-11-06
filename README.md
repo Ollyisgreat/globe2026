@@ -14,6 +14,7 @@ Watch a Miss Globe show from YouTube with the **live judging scoreboard** from
   Pages change with ▲ ▼ and rotate on their own every 30 s.
 - **Events:** keep a list of Miss Globe shows (name + YouTube link) and switch between them.
 - **Resume:** remembers where you stopped in each video, even after the Firestick restarts.
+- **Video quality:** 720p by default for smooth playback on a Firestick; change it to 480p or Auto in the Events menu.
 
 ## Remote controls
 
