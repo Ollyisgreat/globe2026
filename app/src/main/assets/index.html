@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Miss Globe TV</title>
+<link rel="stylesheet" href="tv.css">
+</head>
+<body>
+<div id="stage">
+  <section id="video">
+    <div id="player"></div>
+    <div id="videoMsg" class="video-msg"></div>
+    <div id="osd" class="osd">
+      <div class="osd-title" id="osdTitle"></div>
+      <div class="osd-bar"><i id="osdFill"></i></div>
+      <div class="osd-row"><span id="osdTime"></span><span id="osdState"></span></div>
+      <div class="osd-keys">OK play/pause · ◀ ▶ skip 10s · ▲ scores on/off · ▼ recap · ≡ events</div>
+    </div>
+  </section>
+
+  <aside id="board">
+    <div class="b-head">
+      <img src="logo.png" alt="">
+      <div class="b-titles">
+        <div class="b-kicker">The Miss Globe 2026</div>
+        <div class="b-title">Live Scores</div>
+      </div>
+      <span class="b-live" id="live"><i></i>LIVE</span>
+    </div>
+    <div id="leader" class="b-leader"></div>
+    <div id="listWrap" class="b-listwrap"><div id="list" class="b-list"></div></div>
+    <div id="foot" class="b-foot">Connecting…</div>
+  </aside>
+</div>
+
+<section id="recap">
+  <div class="recap-bar"><b>Recap</b><span>▲ ▼ scroll · Back to return</span></div>
+  <iframe id="recapFrame" title="Recap" src="about:blank"></iframe>
+  <div id="recapMsg" class="video-msg"></div>
+</section>
+
+<section id="menu" class="overlay">
+  <div class="panel">
+    <div class="panel-head">
+      <img src="logo.png" alt="">
+      <div><h2>Events</h2><p>Choose which Miss Globe show to watch. The scoreboard stays the same.</p></div>
+    </div>
+    <div id="evList" class="ev-list"></div>
+    <button id="evAdd" class="btn add" data-nav>+ Add an event</button>
+    <form id="evForm" class="ev-form" autocomplete="off">
+      <h3 id="fHead">Add an event</h3>
+      <label>Name<input id="fName" data-nav placeholder="e.g. Miss Globe 2026 Final"></label>
+      <label>YouTube link or video ID<input id="fUrl" data-nav placeholder="https://youtu.be/…"></label>
+      <div id="fErr" class="err"></div>
+      <div class="btnrow">
+        <button type="submit" class="btn primary" data-nav>Save</button>
+        <button type="button" id="fCancel" class="btn" data-nav>Cancel</button>
+      </div>
+    </form>
+    <div class="keys">
+      <b>Remote</b> OK play/pause · ◀ ▶ skip 10s (⏪ ⏩ 30s) · ▲ show/hide scores · ▼ recap · ≡ this menu · Back close/exit
+    </div>
+  </div>
+</section>
+
+<div id="toast"></div>
+
+<script src="roster-parse.js"></script>
+<script src="roster-fallback.js"></script>
+<script src="tv.js"></script>
+<script src="https://www.youtube.com/iframe_api" async></script>
+</body>
+</html>
