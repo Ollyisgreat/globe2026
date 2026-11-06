@@ -218,6 +218,22 @@
    * ===================================================================== */
   var events = store.get('events', []);
   var currentId = store.get('current', null);
+
+  // Built-in Miss Globe 2026 shows. Added once on first launch (or after an
+  // update), skipping any the user already has; they can be edited or deleted.
+  var BUILT_IN = [
+    { id: 'mg26-final', name: 'Miss Globe 2026 · Final', videoId: 'Rtxqt4FCwSA' },
+    { id: 'mg26-swimsuit', name: 'Miss Globe 2026 · Swimsuit', videoId: 'xX6WihqaprQ' },
+    { id: 'mg26-semi', name: 'Miss Globe 2026 · Semi final', videoId: 'YmYxJ4uUBi4' }
+  ];
+  if (!store.get('builtInAdded', false)) {
+    BUILT_IN.forEach(function (b) {
+      if (events.some(function (e) { return e.videoId === b.videoId; })) return;
+      events.push({ id: b.id, name: b.name, url: 'https://www.youtube.com/live/' + b.videoId, videoId: b.videoId });
+    });
+    if (!currentId && events.length) currentId = events[0].id;
+    store.set('events', events); store.set('current', currentId); store.set('builtInAdded', true);
+  }
   function currentEvent() {
     for (var i = 0; i < events.length; i++) if (events[i].id === currentId) return events[i];
     return events[0] || null;
