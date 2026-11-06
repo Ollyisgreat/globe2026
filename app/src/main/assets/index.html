@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Miss Globe TV</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Inter:wght@400;600;700;800&display=swap">
 <link rel="stylesheet" href="tv.css">
 </head>
 <body>
@@ -11,11 +13,23 @@
   <section id="video">
     <div id="player"></div>
     <div id="videoMsg" class="video-msg"></div>
-    <div id="osd" class="osd">
-      <div class="osd-title" id="osdTitle"></div>
-      <div class="osd-bar"><i id="osdFill"></i></div>
-      <div class="osd-row"><span id="osdTime"></span><span id="osdState"></span></div>
-      <div class="osd-keys">OK play/pause · ◀ ▶ skip 10s · ▲ scores on/off · ▼ recap · ≡ events</div>
+    <div id="ctl" class="ctl">
+      <div class="ctl-top"><div class="ctl-title" id="ctlTitle"></div><div class="ctl-seek" id="ctlSeek"></div></div>
+      <div class="ctl-bar"><i id="ctlBuf"></i><i id="ctlFill"></i><b id="ctlKnob"></b></div>
+      <div class="ctl-row"><span id="ctlTime">0:00</span><span id="ctlDur"></span></div>
+      <div class="ctl-btns">
+        <div class="cb" data-a="b30">⏪<small>30s</small></div>
+        <div class="cb" data-a="b10">↺<small>10s</small></div>
+        <div class="cb pp" data-a="pp" id="ctlPP">❚❚</div>
+        <div class="cb" data-a="f10"><small>10s</small>↻</div>
+        <div class="cb" data-a="f30"><small>30s</small>⏩</div>
+        <span class="ctl-sep"></span>
+        <div class="cb txt" data-a="scores">Scores</div>
+        <div class="cb txt" data-a="recap">Recap</div>
+        <div class="cb txt" data-a="events">Events</div>
+        <div class="cb txt" data-a="restart">⟲ Start over</div>
+      </div>
+      <div class="ctl-hint">◀ ▶ choose · OK select · ▲ ▼ hide · when hidden, ◀ ▶ skip 10s (keep tapping for 30s)</div>
     </div>
   </section>
 
@@ -60,7 +74,7 @@
       </div>
     </form>
     <div class="keys">
-      <b>Remote</b> OK play/pause · ◀ ▶ skip 10s (⏪ ⏩ 30s) · ▲ show/hide scores · ▼ recap · ≡ this menu · Back close/exit
+      <b>Remote</b> OK player controls · ◀ ▶ skip 10s (keep tapping for 30s) · ⏪ ⏩ 30s · ▲ show/hide scores · ▼ recap · ≡ this menu · Back close/exit
     </div>
   </div>
 </section>

@@ -1,6 +1,5 @@
 /* Miss Globe TV — black · red · white, matching the judging desk.
    1rem = 1% of the screen width, so everything scales with the TV. */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root{
   --bg:#0c0a0b;--bg-2:#151112;--bg-3:#1c1516;--bg-4:#271d1e;
@@ -52,7 +51,7 @@ body.board-off #video{width:100vw}
 
 .b-listwrap{flex:1;min-height:0;overflow:hidden;position:relative}
 .b-listwrap::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2.5rem;background:linear-gradient(transparent,var(--bg));pointer-events:none}
-.b-list{padding:.3rem 0 2rem}
+.b-list{padding:.3rem 0 2rem;transition:transform .8s ease;will-change:transform}
 .srow{display:flex;align-items:center;gap:.55rem;padding:.5rem .8rem .5rem .6rem;border-bottom:1px solid rgba(255,255,255,.05);transition:background 1s}
 .srow .rk{width:1.6rem;text-align:center;font-family:Cinzel,Georgia,serif;font-weight:800;font-size:.95rem;color:var(--text-2);flex:none}
 .srow.r2 .rk{color:var(--silver)}.srow.r3 .rk{color:var(--bronze)}
@@ -74,13 +73,28 @@ body.board-off #video{width:100vw}
 .video-msg.on{display:flex}
 .video-msg b{font-family:Cinzel,Georgia,serif;font-size:2rem;display:block;margin-bottom:.8rem}
 .video-msg small{display:block;color:var(--muted);font-size:1rem;margin-top:1rem}
-.osd{position:absolute;left:0;right:0;bottom:0;padding:5rem 2.5rem 1.8rem;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .3s;pointer-events:none}
-.osd.on{opacity:1}
-.osd-title{font-family:Cinzel,Georgia,serif;font-weight:700;font-size:1.5rem;margin-bottom:.8rem}
-.osd-bar{height:.35rem;background:rgba(255,255,255,.25);border-radius:1rem;overflow:hidden}
-.osd-bar i{display:block;height:100%;width:0;background:var(--red)}
-.osd-row{display:flex;justify-content:space-between;font-size:.95rem;margin-top:.5rem;color:var(--text-2);font-variant-numeric:tabular-nums}
-.osd-keys{font-size:.8rem;color:var(--muted);margin-top:.6rem}
+.ctl{position:absolute;left:0;right:0;bottom:0;padding:7rem 2.4rem 1.5rem;background:linear-gradient(transparent,rgba(0,0,0,.6) 35%,rgba(0,0,0,.92));opacity:0;transform:translateY(2rem);transition:opacity .2s,transform .2s;pointer-events:none}
+.ctl.on{opacity:1;transform:none}
+.ctl-top{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:.8rem;gap:1rem}
+.ctl-title{font-family:Cinzel,Georgia,serif;font-weight:700;font-size:1.5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctl-seek{font-family:Cinzel,Georgia,serif;font-weight:800;font-size:2.2rem;color:var(--gold);white-space:nowrap}
+.ctl-bar{position:relative;height:.45rem;background:rgba(255,255,255,.18);border-radius:1rem}
+.ctl-bar i{position:absolute;left:0;top:0;width:100%;height:100%;transform-origin:left center;transform:scaleX(0);border-radius:1rem}
+#ctlBuf{background:rgba(255,255,255,.3)}
+#ctlFill{background:var(--red)}
+.ctl-bar b{position:absolute;top:50%;left:0;width:1.2rem;height:1.2rem;margin:-.6rem 0 0 -.6rem;border-radius:50%;background:#fff;box-shadow:0 0 0 .25rem rgba(234,34,43,.65)}
+.ctl-row{display:flex;justify-content:space-between;font-size:1rem;font-weight:600;color:var(--text-2);margin-top:.5rem;font-variant-numeric:tabular-nums}
+.ctl-btns{display:flex;align-items:center;gap:.6rem;margin-top:.8rem}
+.cb{min-width:4.6rem;height:3.6rem;padding:0 1rem;border-radius:.8rem;background:rgba(255,255,255,.12);color:#fff;font-weight:700;font-size:1.4rem;display:flex;align-items:center;justify-content:center;gap:.25rem;border:.15rem solid transparent;transition:transform .1s,background .1s}
+.cb small{font-size:.8rem;font-weight:700;opacity:.85}
+.cb.pp{min-width:5.4rem;height:4.4rem;font-size:1.7rem;background:var(--red);border-radius:50%}
+.cb.txt{font-size:1rem}
+.cb.focus{border-color:#fff;transform:scale(1.1);background:rgba(234,34,43,.6)}
+.cb.pp.focus{background:var(--red-hi)}
+.ctl-sep{flex:1}
+.ctl-hint{font-size:.78rem;color:var(--muted);margin-top:.7rem}
+.ctl:not(.nav) .ctl-btns,.ctl:not(.nav) .ctl-hint{display:none}
+body.recap-on .ctl{display:none}
 
 /* ---------- Recap (full screen, video keeps playing in the corner) ---------- */
 #recap{position:fixed;inset:0;display:none;background:var(--bg);z-index:5}
@@ -88,7 +102,6 @@ body.recap-on #recap{display:block}
 .recap-bar{height:2.6rem;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;background:var(--red);color:#fff;font-size:.9rem}
 .recap-bar b{font-family:Cinzel,Georgia,serif;font-size:1.2rem;letter-spacing:.1rem}
 body.recap-on #video{position:fixed;z-index:6;right:1.2rem;bottom:1.2rem;width:24vw;height:13.5vw;flex:none;box-shadow:0 0 0 .2rem var(--red),0 1rem 3rem rgba(0,0,0,.7);border-radius:.4rem;overflow:hidden}
-body.recap-on #osd{display:none}
 body.recap-on #stage{z-index:6;pointer-events:none}
 body.recap-on #board{visibility:hidden}
 

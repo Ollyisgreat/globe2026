@@ -16,6 +16,7 @@
   var POLL_MS = 5000;
   var native = window.Android || { setMode: function () {}, exitApp: function () {}, showKeyboard: function () {}, openYouTube: function () {} };
   var $ = function (id) { return document.getElementById(id); };
+  function setHtml(el, html) { if (el._h !== html) { el._h = html; el.innerHTML = html; } }
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); };
 
   /* ---------------- Storage ---------------- */
@@ -129,7 +130,7 @@
     }).join('') + '</div>';
   }
   function photo(c, cls) {
-    return '<img ' + (cls ? 'class="' + cls + '" ' : '') + 'src="' + esc(c.photo || 'logo.png') + '" onerror="this.onerror=null;this.src=\'logo.png\'" alt="">';
+    return '<img decoding="async" ' + (cls ? 'class="' + cls + '" ' : '') + 'src="' + esc(c.photo || 'logo.png') + '" onerror="this.onerror=null;this.src=\'logo.png\'" alt="">';
   }
 
   function render() {
@@ -156,25 +157,25 @@
     };
 
     if (!list.length) {
-      $('leader').innerHTML = '<div class="lead-tag">Leader</div><div class="b-empty" style="padding:.6rem 0;text-align:left">Waiting for the first scores from the judges…</div>';
-      $('list').innerHTML = '<div class="b-empty">' + roster.candidates.length + ' delegates · ' + roster.fields.length + ' categories · ' + roster.judges.length + ' judges.<br>The leaderboard fills in as scores land.</div>';
+      setHtml($('leader'), '<div class="lead-tag">Leader</div><div class="b-empty" style="padding:.6rem 0;text-align:left">Waiting for the first scores from the judges…</div>');
+      setHtml($('list'), '<div class="b-empty">' + roster.candidates.length + ' delegates · ' + roster.fields.length + ' categories · ' + roster.judges.length + ' judges.<br>The leaderboard fills in as scores land.</div>');
     } else {
       var L = list[0];
-      $('leader').innerHTML =
+      setHtml($('leader'),
         '<div class="lead-tag">★ Current leader' + mv(L.c.id) + '</div>' +
         '<div class="lead' + (flashes[L.c.id] > now ? ' flash' : '') + '">' + photo(L.c) +
         '<div class="lead-info"><div class="lead-name">' + esc(L.c.name) + '</div>' +
         '<div class="lead-country">' + flag(L.c) + esc(L.c.country) + '</div>' +
         '<div class="lead-score">' + L.avg.toFixed(1) + '<small>/ ' + maxTotal + '</small></div>' +
-        judgesHtml(L) + '</div></div>';
-      $('list').innerHTML = list.slice(1).map(function (x, i) {
+        judgesHtml(L) + '</div></div>');
+      setHtml($('list'), list.slice(1).map(function (x, i) {
         var r = i + 2;
         return '<div class="srow r' + r + (flashes[x.c.id] > now ? ' flash' : '') + '">' +
           '<span class="rk">' + r + '</span>' + photo(x.c) +
           '<div class="who"><div class="nm">' + esc(x.c.name) + '</div>' +
           '<div class="ct">' + flag(x.c) + esc(x.c.country) + '</div>' + judgesHtml(x) + '</div>' +
           '<span class="sc">' + x.avg.toFixed(1) + mv(x.c.id) + '</span></div>';
-      }).join('') || '<div class="b-empty">More delegates appear here as they are scored.</div>';
+      }).join('') || '<div class="b-empty">More delegates appear here as they are scored.</div>');
     }
     renderFoot(list.length);
     setTimeout(clearFlashes, 3600);
@@ -191,24 +192,19 @@
     live.classList.toggle('off', !online);
     live.lastChild.nodeValue = online ? 'LIVE' : 'OFFLINE';
     var when = lastOk ? new Date(lastOk).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
-    $('foot').innerHTML = '<span>' + scoredCount + ' / ' + roster.candidates.length + ' scored</span><span>' +
-      (online ? 'Updated ' + when : (lastOk ? 'Reconnecting… last ' + when : 'Connecting…')) + '</span>';
+    setHtml($('foot'), '<span>' + scoredCount + ' / ' + roster.candidates.length + ' scored</span><span>' +
+      (online ? 'Updated ' + when : (lastOk ? 'Reconnecting… last ' + when : 'Connecting…')) + '</span>');
   }
 
-  // Gentle auto-scroll when the leaderboard is longer than the panel.
-  var scroll = { phase: 'top', until: 0, y: 0, last: 0 };
-  function autoScroll(t) {
-    var wrap = $('listWrap'), max = wrap.scrollHeight - wrap.clientHeight;
-    var dt = scroll.last ? Math.min(100, t - scroll.last) : 16; scroll.last = t;
-    if (max <= 4) { scroll.phase = 'top'; scroll.y = 0; scroll.until = t + 5000; }
-    else if (scroll.phase === 'top' && t > scroll.until) scroll.phase = 'run';
-    else if (scroll.phase === 'run') {
-      scroll.y += dt * wrap.clientHeight / 22000;      // ~22 s to scroll one panel height
-      if (scroll.y >= max) { scroll.y = max; scroll.phase = 'bottom'; scroll.until = t + 5000; }
-    } else if (scroll.phase === 'bottom' && t > scroll.until) { scroll.y = 0; scroll.phase = 'top'; scroll.until = t + 6000; }
-    wrap.scrollTop = scroll.y;
-    requestAnimationFrame(autoScroll);
-  }
+  // Flip through the leaderboard a page at a time (cheap for the Firestick's GPU).
+  var page = 0;
+  setInterval(function () {
+    var wrap = $('listWrap'), list = $('list'), max = list.offsetHeight - wrap.clientHeight + 24;
+    if (max <= 30) { if (page) { page = 0; list.style.transform = ''; } return; }
+    var step = wrap.clientHeight * 0.85, y = (page + 1) * step;
+    if (page && (page * step) >= max) { page = 0; y = 0; } else { page++; y = Math.min(y, max); }
+    list.style.transform = y ? 'translateY(-' + Math.round(y) + 'px)' : '';
+  }, 7000);
 
   function setBoard(on) {
     document.body.classList.toggle('board-off', !on);
@@ -306,35 +302,99 @@
     return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (x < 10 ? '0' : '') + x;
   }
 
-  var osdTimer, osdTick;
-  function showOsd(stay) {
-    var ev = currentEvent(); if (!ev) return;
-    var o = $('osd'); o.classList.add('on');
-    var upd = function () {
-      if (!playerReady || !player.getCurrentTime) return;
-      var t = player.getCurrentTime() || 0, d = player.getDuration() || 0;
-      $('osdTitle').textContent = ev.name;
-      $('osdFill').style.width = (isLive ? 100 : d ? Math.min(100, t / d * 100) : 0) + '%';
-      $('osdTime').textContent = isLive ? '● LIVE' : fmt(t) + ' / ' + fmt(d);
-      $('osdState').textContent = playing ? '▶ Playing' : '❚❚ Paused';
-    };
-    upd(); clearInterval(osdTick); osdTick = setInterval(upd, 500);
-    clearTimeout(osdTimer);
-    if (!stay) osdTimer = setTimeout(function () { o.classList.remove('on'); clearInterval(osdTick); }, 4000);
-  }
+  /* ---------------- Player control bar ----------------
+   * OK shows the bar (and plays/pauses). With the bar open, ◀ ▶ move between
+   * buttons and OK presses one. With it closed, ◀ ▶ skip 10 s — keep tapping
+   * or hold and it speeds up to 30 s jumps. Presses add up on screen and the
+   * video only jumps once you stop, so there's no re-buffering per tap. */
+  var CTL = ['b30', 'b10', 'pp', 'f10', 'f30', 'scores', 'recap', 'events', 'restart'];
+  var ctlOpen = false, ctlNav = false, ctlFocus = 2, ctlHideTimer = null, ctlTick = null;
+  var seekTarget = null, seekBase = 0, seekTimer = null, seekShown = null, rep = { dir: 0, n: 0, at: 0 };
 
+  function realTime() { return playerReady && player.getCurrentTime ? player.getCurrentTime() || 0 : 0; }
+  function curTime() {
+    if (seekTarget != null) return seekTarget;
+    var t = realTime();
+    if (seekShown && Date.now() < seekShown.until && Math.abs(t - seekShown.t) > 2) return seekShown.t;
+    return t;
+  }
+  function updCtl() {
+    if (!playerReady || !player.getDuration) return;
+    var ev = currentEvent(), d = player.getDuration() || 0, t = curTime(), f = d ? Math.min(1, t / d) : 0;
+    $('ctlTitle').textContent = ev ? ev.name : '';
+    $('ctlFill').style.transform = 'scaleX(' + f + ')';
+    $('ctlBuf').style.transform = 'scaleX(' + (player.getVideoLoadedFraction ? player.getVideoLoadedFraction() || 0 : 0) + ')';
+    $('ctlKnob').style.left = (f * 100) + '%';
+    $('ctlTime').textContent = fmt(t);
+    $('ctlDur').textContent = isLive ? '● LIVE' : fmt(d);
+    var diff = seekTarget != null ? Math.round(seekTarget - seekBase) : 0;
+    $('ctlSeek').textContent = seekTarget != null && diff ? (diff > 0 ? '⏩ +' : '⏪ −') + fmtShort(Math.abs(diff)) : '';
+    $('ctlPP').textContent = playing ? '❚❚' : '▶';
+  }
+  function fmtShort(s) { return s >= 60 ? Math.floor(s / 60) + 'm' + (s % 60 ? ' ' + (s % 60) + 's' : '') : s + 's'; }
+  function paintFocus() {
+    var bs = document.querySelectorAll('#ctl [data-a]');
+    for (var i = 0; i < bs.length; i++) bs[i].classList.toggle('focus', ctlNav && i === ctlFocus);
+  }
+  // nav=true: buttons are selectable (after OK). nav=false: just show progress (seeking, pause).
+  function showCtl(nav) {
+    if (!ctlOpen) { ctlOpen = true; $('ctl').classList.add('on'); }
+    if (nav && !ctlNav) { ctlNav = true; ctlFocus = 2; }
+    $('ctl').classList.toggle('nav', ctlNav);
+    paintFocus(); updCtl();
+    clearInterval(ctlTick); ctlTick = setInterval(updCtl, 500);
+    armHide();
+  }
+  function armHide() {
+    clearTimeout(ctlHideTimer);
+    ctlHideTimer = setTimeout(function () { if (playing && seekTarget == null) hideCtl(); else armHide(); }, 5000);
+  }
+  function hideCtl() { ctlOpen = false; ctlNav = false; $('ctl').classList.remove('on'); clearInterval(ctlTick); clearTimeout(ctlHideTimer); paintFocus(); }
+  function showOsd() { showCtl(false); }   // used by player state changes
+
+  function ctlAction(a) {
+    switch (a) {
+      case 'b30': seek(-30); break;
+      case 'b10': seek(-10); break;
+      case 'f10': seek(10); break;
+      case 'f30': seek(30); break;
+      case 'pp': togglePlay(); break;
+      case 'scores': toggleBoard(); break;
+      case 'recap': hideCtl(); openRecap(); break;
+      case 'events': hideCtl(); openMenu(); break;
+      case 'restart':
+        if (!playerReady) break;
+        seekTarget = null; clearTimeout(seekTimer); player.seekTo(0, true); player.playVideo();
+        seekShown = { t: 0, until: Date.now() + 2000 }; toast('Back to the start', 1200); break;
+    }
+  }
   function togglePlay() {
     if (!playerReady) return;
-    if (playing) player.pauseVideo(); else player.playVideo();
-    setTimeout(function () { showOsd(!playing); }, 250);
+    var want = !playing; playing = want;
+    if (want) player.playVideo(); else player.pauseVideo();
+    showCtl(false); updCtl();
   }
   function seek(delta) {
     if (!playerReady || !player.getCurrentTime) return;
-    var d = player.getDuration() || 0, t = player.getCurrentTime() + delta;
-    t = Math.max(0, d ? Math.min(t, d - 1) : t);
-    player.seekTo(t, true);
-    toast((delta > 0 ? '⏩ +' : '⏪ −') + Math.abs(delta) + 's', 900);
-    showOsd();
+    if (seekTarget == null) seekBase = curTime();
+    var d = player.getDuration() || 0, t = curTime() + delta;
+    seekTarget = Math.max(0, d ? Math.min(t, d - 1) : t);
+    showCtl(false); updCtl();
+    clearTimeout(seekTimer);
+    seekTimer = setTimeout(function () {
+      seekShown = { t: seekTarget, until: Date.now() + 2500 };
+      player.seekTo(seekTarget, true); seekTarget = null; updCtl();
+    }, 650);
+  }
+  function stepSeek(dir) {   // tap = 10 s; keep tapping / hold = 30 s jumps
+    var now = Date.now();
+    rep.n = rep.dir === dir && now - rep.at < 700 ? rep.n + 1 : 0;
+    rep.dir = dir; rep.at = now;
+    seek(dir * (rep.n >= 3 ? 30 : 10));
+  }
+  function toggleBoard() {
+    var on = document.body.classList.contains('board-off');
+    setBoard(on); toast(on ? 'Scoreboard on' : 'Scoreboard hidden · ▲ to show', 1500);
   }
 
   /* =====================================================================
@@ -529,7 +589,7 @@
         '<div class="rc-side"><div class="rc-card"><h3>Judge coverage</h3>' + cover + '</div><div class="rc-card"><h3>Pressure watch · Bottom 5</h3>' + low + '</div></div>' +
         '</div>';
     }
-    $('rcBody').innerHTML = html;
+    setHtml($('rcBody'), html);
   }
 
   /* =====================================================================
@@ -654,17 +714,25 @@
       if (k === 'up') { recapTurn(-1); return true; }
       if (k === 'down') { recapTurn(1); return true; }
     }
+    if (mode === 'main' && ctlNav) {
+      armHide();
+      if (k === 'left') { ctlFocus = Math.max(0, ctlFocus - 1); paintFocus(); return true; }
+      if (k === 'right') { ctlFocus = Math.min(CTL.length - 1, ctlFocus + 1); paintFocus(); return true; }
+      if (k === 'ok') { ctlAction(CTL[ctlFocus]); return true; }
+      if (k === 'up' || k === 'down' || k === 'back') { hideCtl(); return true; }
+    }
     switch (k) {
-      case 'ok': case 'playpause': togglePlay(); return true;
+      case 'ok': if (mode === 'main') { showCtl(true); return true; } togglePlay(); return true;
+      case 'playpause': togglePlay(); return true;
       case 'play': if (playerReady) player.playVideo(); showOsd(); return true;
-      case 'pause': if (playerReady) player.pauseVideo(); showOsd(true); return true;
-      case 'left': seek(-10); return true;
-      case 'right': seek(10); return true;
+      case 'pause': if (playerReady) player.pauseVideo(); showOsd(); return true;
+      case 'left': stepSeek(-1); return true;
+      case 'right': stepSeek(1); return true;
       case 'rew': seek(-30); return true;
       case 'ff': seek(30); return true;
-      case 'up': if (mode === 'main') { var on = document.body.classList.contains('board-off'); setBoard(on); toast(on ? 'Scoreboard on' : 'Scoreboard hidden · ▲ to show', 1500); } return true;
+      case 'up': if (mode === 'main') toggleBoard(); return true;
       case 'down': if (mode === 'main') openRecap(); return true;
-      case 'menu': openMenu(); return true;
+      case 'menu': hideCtl(); openMenu(); return true;
       case 'back': exitSoon(); return true;
     }
     return false;
@@ -694,9 +762,8 @@
   setBoard(store.get('boardOn', true));
   render();
   poll(); setInterval(poll, POLL_MS);
-  setInterval(renderFoot, 1000);
+  setInterval(renderFoot, 5000);
   loadRoster();
-  requestAnimationFrame(autoScroll);
   setMode('main');
   if (!events.length) openMenu(true);
   else videoMsg('<div><b>Loading YouTube…</b>If this stays here, check the Firestick is online.</div>');

@@ -17,15 +17,23 @@ Watch a Miss Globe show from YouTube with the **live judging scoreboard** from
 
 ## Remote controls
 
-| Button | Main screen | Recap | Events menu |
-|---|---|---|---|
-| OK / ⏯ | Play / pause | Play / pause | Select |
-| ◀ ▶ | Skip back / forward 10 s | Skip 10 s | Move |
-| ⏪ ⏩ | Skip 30 s | Skip 30 s | – |
-| ▲ | Show / hide scoreboard | Previous page | Move |
-| ▼ | Open Recap | Next page | Move |
-| ≡ Menu | Events menu | Events menu | Close |
-| Back | Press twice to exit | Back to video | Close |
+**Watching**
+
+| Button | What it does |
+|---|---|
+| OK | Open the player controls |
+| ◀ ▶ | Skip back / forward 10 s. Keep tapping (or hold) and it jumps 30 s at a time. Taps add up on screen, and the video jumps once you stop |
+| ⏪ ⏩ | Skip 30 s |
+| ⏯ | Play / pause |
+| ▲ | Show / hide the scoreboard |
+| ▼ | Open Recap |
+| ≡ Menu | Events (switch show / add a link) |
+| Back | Press twice to exit |
+
+**Player controls** (after pressing OK): ◀ ▶ choose a button, OK presses it, ▲ ▼ or Back hides them.
+Buttons: ⏪ 30s · ↺ 10s · ⏯ · 10s ↻ · 30s ⏩ · Scores · Recap · Events · Start over.
+
+**Recap:** ▲ ▼ change page, Back returns to the video. **Events menu:** arrows move, OK selects, Back closes.
 
 ## Install on the Firestick
 
