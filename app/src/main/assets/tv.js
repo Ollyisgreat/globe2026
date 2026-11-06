@@ -250,32 +250,81 @@
   /* =====================================================================
    * VIDEO (YouTube IFrame Player) + resume where you left off
    * ===================================================================== */
+  // `player` is whichever is active: the YouTube player, or the Firestick's own
+  // player for video files (same methods, see localPlayer below).
   var player = null, playerReady = false, playing = false, isLive = false;
+  var yt = null, ytReady = false;
   var progress = store.get('progress', {});
 
   window.onYouTubeIframeAPIReady = function () {
-    player = new YT.Player('player', {
+    yt = new YT.Player('player', {
       width: '100%', height: '100%',
       playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1, iv_load_policy: 3, modestbranding: 1, fs: 0, disablekb: 1, origin: location.origin },
       events: {
-        onReady: function () { playerReady = true; playCurrent(); },
-        onStateChange: onState,
-        onError: onError
+        onReady: function () {
+          ytReady = true;
+          var ev = currentEvent();
+          if (!ev || ev.type !== 'file') playCurrent();
+        },
+        onStateChange: function (e) { if (player === yt) onState(e); },
+        onError: function (e) { if (player === yt) onError(e); }
       }
     });
   };
+
+  /* ---- Video files on the Firestick: native player under the page ---- */
+  var hasNative = !!(window.Android && window.Android.hasNativePlayer);
+  var local = { on: false, st: {}, lastPlaying: false, lastEnded: false, lastErr: '' };
+  var localPlayer = {
+    playVideo: function () { native.localResume(); },
+    pauseVideo: function () { native.localPause(); },
+    stopVideo: function () { native.localStop(); },
+    seekTo: function (t) { native.localSeek(t); local.st.t = t; },
+    getCurrentTime: function () { return local.st.t || 0; },
+    getDuration: function () { return local.st.d || 0; },
+    getVideoLoadedFraction: function () { return local.st.buf || 0; },
+    getVideoData: function () { return { isLive: false }; }
+  };
+  setInterval(function () {
+    if (!local.on) return;
+    try { local.st = JSON.parse(native.localState()) || {}; } catch (e) { return; }
+    var p = !!local.st.playing;
+    if (local.st.error && local.st.error !== local.lastErr) {
+      local.lastErr = local.st.error;
+      videoMsg('<div><b>Can’t play this file</b>The Firestick couldn’t read this video (' + esc(local.st.error) + ').<small>MP4 files work best. Press ≡ Menu to choose another.</small></div>');
+    }
+    if (local.st.ended && !local.lastEnded) onState({ data: 0 });
+    else if (p !== local.lastPlaying) onState({ data: p ? 1 : 2 });
+    local.lastPlaying = p; local.lastEnded = !!local.st.ended;
+  }, 300);
+  function setLocal(on) {
+    local.on = on;
+    document.documentElement.classList.toggle('local', on);
+    document.body.classList.toggle('local', on);
+  }
 
   function videoMsg(html) { var m = $('videoMsg'); m.innerHTML = html || ''; m.classList.toggle('on', !!html); }
 
   function playCurrent(fromStart) {
     var ev = currentEvent();
     if (!ev) { if (playerReady) player.stopVideo(); videoMsg('<div><b>No event chosen yet</b>Press ≡ Menu on the remote to add the Miss Globe YouTube link.</div>'); return; }
-    if (!playerReady) { videoMsg('<div><b>Loading YouTube…</b>If this stays here, check the Firestick is online.</div>'); return; }
-    videoMsg('');
     var p = progress[ev.videoId], start = 0;
     if (!fromStart && p && p.t > 15 && (!p.d || p.t < p.d - 30)) start = Math.floor(p.t - 3);
     if (fromStart) { delete progress[ev.videoId]; store.set('progress', progress); }
-    player.loadVideoById({ videoId: ev.videoId, startSeconds: start });
+    if (ev.type === 'file') {
+      if (!hasNative) { videoMsg('<div><b>Video files play in the Firestick app</b>This preview can’t open files on the Firestick.</div>'); return; }
+      if (ytReady) yt.stopVideo();
+      player = localPlayer; playerReady = true; isLive = false; playing = false;
+      local.lastPlaying = false; local.lastEnded = false; local.lastErr = ''; local.st = { t: start };
+      setLocal(true); videoMsg(''); fitPlayer();
+      native.localPlay(ev.path, start);
+    } else {
+      if (local.on) { native.localStop(); setLocal(false); }
+      player = yt; playerReady = ytReady;
+      if (!playerReady) { videoMsg('<div><b>Loading YouTube…</b>If this stays here, check the Firestick is online.</div>'); return; }
+      videoMsg('');
+      yt.loadVideoById({ videoId: ev.videoId, startSeconds: start });
+    }
     if (start) toast('Resuming “' + ev.name + '” from ' + fmt(start) + ' · Menu → Start over to restart', 4500);
     else toast('Playing “' + ev.name + '”');
   }
@@ -297,7 +346,7 @@
   function onError(e) {
     var ev = currentEvent(), code = e.data;
     var why = code === 101 || code === 150 || code === 152
-      ? 'The video owner has turned off playing this video inside other apps.'
+      ? 'The video owner has turned off playing this video inside other apps. If you have the video file, put it on the Firestick and choose ≡ Menu → Play a video file.'
       : code === 100 ? 'This video is private, removed, or the link is wrong.'
       : code === 2 ? 'That link doesn’t look like a valid YouTube video.'
       : code === 153 ? 'YouTube refused the player (missing referrer).'
@@ -329,6 +378,7 @@
   var quality = store.get('quality', '720');
   function fitPlayer() {
     var v = $('video'), box = $('playerBox'), W = v.clientWidth, H = v.clientHeight;
+    if (local.on) { var r = v.getBoundingClientRect(); native.setVideoRect(r.left, r.top, r.width, r.height); }
     if (!W || !H) return;
     var dpr = window.devicePixelRatio || 1, target = quality === 'auto' ? 0 : Number(quality);
     var videoH = Math.min(H, W * 9 / 16);          // height of the 16:9 picture itself
@@ -681,6 +731,42 @@
     }
   });
   $('evAdd').addEventListener('click', function () { openForm(null); });
+
+  /* ---- "Play a video file": list videos found on the Firestick / USB ---- */
+  var foundFiles = [];
+  function sizeTxt(b) { return b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(b / 1e6)) + ' MB'; }
+  $('fileBtn').addEventListener('click', function () {
+    if (!hasNative) { $('fileList').innerHTML = '<div class="empty-ev">Video files can only be played in the Firestick app.</div>'; return; }
+    $('fileList').innerHTML = '<div class="empty-ev">Looking for videos on the Firestick…</div>';
+    native.listVideos();
+  });
+  function onFiles(json) {
+    var r; try { r = JSON.parse(json); } catch (e) { r = { files: [] }; }
+    foundFiles = r.files || [];
+    var box = $('fileList');
+    if (r.denied) {
+      box.innerHTML = '<div class="empty-ev"><b>The app needs permission to see your videos.</b><br>Press the button again and choose <b>Allow</b>. If it doesn’t ask: Settings → Applications → Manage Installed Applications → Miss Globe TV → Permissions → turn on Storage / Files.</div>';
+      return;
+    }
+    if (!foundFiles.length) {
+      box.innerHTML = '<div class="empty-ev"><b>No videos found yet.</b><br>Copy the video into the Firestick’s Download folder (e.g. with the “Send Files to TV” or “Downloader” app), or plug in a USB stick, then press the button again.</div>';
+      return;
+    }
+    box.innerHTML = foundFiles.map(function (f, i) {
+      return '<button class="btn file" data-nav data-i="' + i + '">🎬 ' + esc(f.name) + '<small>' + sizeTxt(f.size) + ' · ' + esc(f.folder || 'Firestick') + '</small></button>';
+    }).join('');
+    focusEl(box.querySelector('[data-nav]'));
+  }
+  $('fileList').addEventListener('click', function (e) {
+    var b = e.target.closest('.file'); if (!b) return;
+    var f = foundFiles[Number(b.getAttribute('data-i'))]; if (!f) return;
+    var ev = events.filter(function (x) { return x.path === f.path; })[0];
+    if (!ev) {
+      ev = { id: 'file' + Date.now().toString(36), type: 'file', name: f.name.replace(/\.[^.]+$/, ''), url: '📁 ' + (f.folder ? f.folder + '/' : '') + f.name, path: f.path, videoId: 'file:' + f.path };
+      events.push(ev);
+    }
+    currentId = ev.id; saveEvents(); $('fileList').innerHTML = ''; closeMenu(); playCurrent();
+  });
   $('fCancel').addEventListener('click', function () { closeForm(); focusEl($('evAdd')); });
 
   function openForm(ev) {
@@ -688,6 +774,7 @@
     $('fHead').textContent = ev ? 'Edit event' : 'Add an event';
     $('fName').value = ev ? ev.name : (events.length ? '' : 'Miss Globe 2026');
     $('fUrl').value = ev ? ev.url : '';
+    $('fUrl').parentNode.style.display = ev && ev.type === 'file' ? 'none' : '';
     $('fErr').textContent = '';
     $('evForm').classList.add('on');
     focusEl(ev || events.length ? $('fName') : $('fUrl'));
@@ -698,6 +785,8 @@
     e.preventDefault();
     var name = $('fName').value.trim(), url = $('fUrl').value.trim(), vid = parseYouTube(url);
     if (!name) { $('fErr').textContent = 'Please enter a name.'; focusEl($('fName')); return; }
+    var editing = events.filter(function (x) { return x.id === editingId; })[0];
+    if (editing && editing.type === 'file') { editing.name = name; currentId = editing.id; saveEvents(); closeMenu(); playCurrent(); return; }
     if (!vid) { $('fErr').textContent = 'That doesn’t look like a YouTube link. Try e.g. https://youtu.be/abc123XYZ00'; focusEl($('fUrl')); return; }
     if (editingId) {
       events.forEach(function (x) { if (x.id === editingId) { x.name = name; x.url = url; x.videoId = vid; } });
@@ -802,7 +891,7 @@
   }, true);
 
   // Entry point for the Android app.
-  window.TV = { key: key };
+  window.TV = { key: key, onFiles: onFiles };
 
   /* ---------------- Start ---------------- */
   setBoard(store.get('boardOn', true));
@@ -813,5 +902,6 @@
   loadRoster();
   setMode('main');
   if (!events.length) openMenu(true);
+  else if (currentEvent() && currentEvent().type === 'file') playCurrent();
   else videoMsg('<div><b>Loading YouTube…</b>If this stays here, check the Firestick is online.</div>');
 })();

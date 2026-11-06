@@ -192,6 +192,12 @@ body.menu-on #menu{display:flex}
 .keys b{color:var(--text-2);margin-right:.4rem}
 .opts{display:flex;align-items:center;gap:1rem;margin-top:1rem}
 .opts span{color:var(--muted);font-size:.85rem}
+.file-list{margin-top:.7rem}
+.btn.file{text-align:left}
+.btn.file small{display:block;font-weight:500;font-size:.8rem;color:var(--muted);margin-top:.2rem}
+/* Video file playing: the Firestick's own player sits underneath the page */
+html.local,body.local,body.local #video,body.local #recap,body.local #rcBody{background:transparent!important}
+body.local #playerBox{visibility:hidden}
 .empty-ev{color:var(--text-2);font-size:1rem;padding:1rem;border-radius:.6rem;background:var(--bg-3)}
 
 /* ---------- Toast ---------- */
