@@ -6,7 +6,12 @@ Watch a Miss Globe show from YouTube with the **live judging scoreboard** from
 - **80 / 20 split:** YouTube video on the left, live scores on the right (updates every 5 s).
 - Scoreboard shows the leader card, then everyone ranked with photo, flag, country,
   joint score /50 and each judge's total. New scores flash; rank moves show ▲/▼.
-- **Recap:** opens the judging site's own Recap page full screen, with the video in the corner.
+- **Live vote pop-ups (top left):** "Olly voted Débora Santos a 10 for Swimwear" with her photo, the
+  score, and her new rank and total — the moment a judge taps a score on the judging desk.
+- **Recap (▼):** a TV-made recap built from the judging data, with the video kept in the corner.
+  Page 1 *Overview*: headline, key stats, Crown watch Top 5, category leaders, latest votes, judges' favourites.
+  Page 2 *Storylines*: the same storyline rules as the website, judge coverage and the bottom 5.
+  Pages change with ▲ ▼ and rotate on their own every 30 s.
 - **Events:** keep a list of Miss Globe shows (name + YouTube link) and switch between them.
 - **Resume:** remembers where you stopped in each video, even after the Firestick restarts.
 
@@ -17,8 +22,8 @@ Watch a Miss Globe show from YouTube with the **live judging scoreboard** from
 | OK / ⏯ | Play / pause | Play / pause | Select |
 | ◀ ▶ | Skip back / forward 10 s | Skip 10 s | Move |
 | ⏪ ⏩ | Skip 30 s | Skip 30 s | – |
-| ▲ | Show / hide scoreboard | Scroll up | Move |
-| ▼ | Open Recap | Scroll down | Move |
+| ▲ | Show / hide scoreboard | Previous page | Move |
+| ▼ | Open Recap | Next page | Move |
 | ≡ Menu | Events menu | Events menu | Close |
 | Back | Press twice to exit | Back to video | Close |
 
@@ -38,7 +43,7 @@ To update, repeat step 3; it installs over the old version and keeps your events
 
 - `app/src/main/assets/` is the TV screen (HTML/CSS/JS). The Android app (`MainActivity.java`)
   is a full-screen WebView that serves those files at `https://globe2026.ollpot.life/__tv/`,
-  so the page can read `api.php` and the Recap page directly, with no changes needed on the website.
+  so the page can read `api.php` and the delegate list directly, with no changes needed on the website.
 - The delegate list, categories and judges are read from the live site's `index.html` on start-up;
   `roster-fallback.js` is an offline copy (regenerate with `node tools/build-roster.js index.html`).
 - YouTube plays through the official embedded player. It **can't sign in to a YouTube account**

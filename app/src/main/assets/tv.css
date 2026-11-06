@@ -85,11 +85,68 @@ body.board-off #video{width:100vw}
 /* ---------- Recap (full screen, video keeps playing in the corner) ---------- */
 #recap{position:fixed;inset:0;display:none;background:var(--bg);z-index:5}
 body.recap-on #recap{display:block}
-#recap iframe{position:absolute;top:2.6rem;left:0;width:100%;height:calc(100% - 2.6rem);border:0;background:var(--bg)}
 .recap-bar{height:2.6rem;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;background:var(--red);color:#fff;font-size:.9rem}
 .recap-bar b{font-family:Cinzel,Georgia,serif;font-size:1.2rem;letter-spacing:.1rem}
 body.recap-on #video{position:fixed;z-index:6;right:1.2rem;bottom:1.2rem;width:24vw;height:13.5vw;flex:none;box-shadow:0 0 0 .2rem var(--red),0 1rem 3rem rgba(0,0,0,.7);border-radius:.4rem;overflow:hidden}
 body.recap-on #osd{display:none}
+body.recap-on #stage{z-index:6;pointer-events:none}
+body.recap-on #board{visibility:hidden}
+
+#rcBody{position:absolute;top:2.6rem;left:0;right:0;bottom:0;padding:1.4rem 1.6rem;overflow:hidden;background:radial-gradient(90% 70% at 15% 0%,rgba(234,34,43,.18),transparent 60%),var(--bg)}
+.rc-grid{display:grid;grid-template-columns:1fr 1fr 27rem;grid-template-rows:auto 1fr;gap:1.1rem;height:100%}
+.rc-lede{grid-column:1/3}
+.rc-kick{font-size:.72rem;letter-spacing:.14rem;text-transform:uppercase;color:var(--red-300);font-weight:800}
+.rc-lede h1{font-family:Cinzel,Georgia,serif;font-size:2.3rem;line-height:1.15;margin:.35rem 0 .4rem}
+.rc-lede p{font-size:1rem;color:var(--text-2);line-height:1.45}
+.rc-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:.7rem;margin-top:.9rem}
+.rc-tile{background:var(--bg-2);border:1px solid var(--line);border-radius:.7rem;padding:.6rem .8rem}
+.rc-tile b{display:block;font-family:Cinzel,Georgia,serif;font-size:1.6rem}
+.rc-tile span{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06rem;font-weight:700}
+.rc-card{background:var(--bg-2);border:1px solid var(--line);border-radius:.9rem;padding:.9rem 1rem;min-height:0;overflow:hidden}
+.rc-card h3{font-family:Cinzel,Georgia,serif;font-size:1.05rem;margin-bottom:.5rem;color:#fff}
+.rc-card h3 small{font-family:Inter,sans-serif;font-size:.7rem;color:var(--muted);font-weight:600;margin-left:.5rem}
+.rc-side{grid-column:3;grid-row:1/3;display:flex;flex-direction:column;gap:1.1rem;padding-bottom:14.6rem;min-height:0}
+.rc-side .rc-card{flex:1 1 auto}
+.rc-row,.rc-cat,.rc-wire,.rc-fav{display:flex;align-items:center;gap:.7rem;padding:.42rem 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.rc-row:last-child,.rc-cat:last-child,.rc-wire:last-child,.rc-fav:last-child{border-bottom:0}
+.rc-row img,.rc-cat img{width:3rem;height:3rem;border-radius:50%;object-fit:cover;object-position:top center;box-shadow:0 0 0 .12rem var(--line-strong);flex:none;background:var(--bg-3)}
+.rc-wire img,.rc-fav img{width:2.4rem;height:2.4rem;border-radius:50%;object-fit:cover;object-position:top center;flex:none;background:var(--bg-3)}
+.rc-rk{width:1.6rem;font-family:Cinzel,Georgia,serif;font-weight:800;font-size:1.1rem;color:var(--text-2);text-align:center;flex:none}
+.rc-c1 .rc-row:first-of-type .rc-rk{color:var(--gold)}
+.rc-who{flex:1;min-width:0;display:flex;flex-direction:column}
+.rc-who b{font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-who span{font-size:.7rem;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-who .judges span{font-size:.58rem;color:var(--text-2)}
+.rc-catn{color:var(--red-300)!important;font-weight:800;text-transform:uppercase;letter-spacing:.06rem;font-size:.6rem!important}
+.rc-sc{font-family:Cinzel,Georgia,serif;font-weight:800;font-size:1.35rem;flex:none}
+.rc-vs{font-family:Cinzel,Georgia,serif;font-weight:800;font-size:1.1rem;width:2.2rem;height:2.2rem;border-radius:.5rem;background:var(--bg-4);display:flex;align-items:center;justify-content:center;flex:none}
+.rc-vs.ten,.vs.ten{background:var(--red);color:#fff}
+.rc-empty{color:var(--muted);font-size:.85rem;padding:1rem 0}
+.rc-p2 .rc-stories{grid-column:1/3;grid-row:1/3}
+.rc-sgrid{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:.8rem;height:calc(100% - 2rem)}
+.rc-story{display:flex;gap:.9rem;background:var(--bg-3);border-left:.25rem solid var(--red);border-radius:.6rem;padding:.9rem 1rem;overflow:hidden}
+.rc-story img{width:4.2rem;height:5.4rem;border-radius:.4rem;object-fit:cover;object-position:top center;flex:none;background:var(--bg-4)}
+.rc-story h4{font-family:Cinzel,Georgia,serif;font-size:1.1rem;line-height:1.2;margin:.25rem 0 .35rem}
+.rc-story p{font-size:.8rem;color:var(--text-2);line-height:1.45}
+.rc-cov{margin:.5rem 0 .9rem}
+.rc-cov div{display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:.3rem}
+.rc-cov span{color:var(--muted)}
+.rc-cov i{display:block;height:.45rem;border-radius:1rem;background:var(--bg-4);overflow:hidden}
+.rc-cov u{display:block;height:100%;background:var(--red)}
+
+/* ---------- Live vote pop-up (top left) ---------- */
+.vote{position:fixed;z-index:8;left:1.4rem;top:1.4rem;max-width:44rem;display:flex;align-items:center;gap:.9rem;padding:.7rem 1rem .7rem .7rem;background:rgba(12,10,11,.9);border:1px solid var(--line-strong);border-left:.3rem solid var(--red);border-radius:.9rem;box-shadow:0 1rem 3rem rgba(0,0,0,.55);transform:translateX(-120%);opacity:0;transition:transform .45s cubic-bezier(.2,.9,.3,1.2),opacity .3s}
+.vote.on{transform:none;opacity:1}
+.vote img{width:4.4rem;height:4.4rem;border-radius:50%;object-fit:cover;object-position:top center;box-shadow:0 0 0 .15rem #fff,0 0 0 .3rem var(--red);flex:none;background:var(--bg-3)}
+.vt{min-width:0}
+.vk{font-size:.62rem;letter-spacing:.12rem;text-transform:uppercase;color:var(--red-300);font-weight:800}
+.vl{font-size:1.15rem;line-height:1.3;margin:.15rem 0}
+.vl .vn{color:var(--gold)}
+.vw{color:var(--muted);font-size:.9rem}
+.vr{font-size:.75rem;color:var(--text-2)}
+.vs{font-family:Cinzel,Georgia,serif;font-weight:800;font-size:2rem;min-width:3.6rem;height:3.6rem;border-radius:.7rem;background:var(--bg-4);display:flex;align-items:center;justify-content:center;flex:none}
+body.recap-on .vote{top:auto;bottom:1.4rem}
+body.menu-on .vote{display:none}
 
 /* ---------- Events menu ---------- */
 .overlay{position:fixed;inset:0;z-index:10;display:none;align-items:center;justify-content:center;background:rgba(6,4,5,.82)}

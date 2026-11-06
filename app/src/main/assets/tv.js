@@ -56,37 +56,68 @@
     }).catch(function () { /* keep cached / bundled roster */ });
   }
 
+  var raw = {};           // id -> { judge: { field: score } }
   var totals = {};        // id -> { judge: total }
+  var favs = {};          // judge -> contestant id (judges' favourites)
+  var picks = {};         // judge -> { top20:[], top10:[], top5:[] }
   var prevAvg = {};       // id -> last average (to flash changes)
   var prevRank = {};      // id -> last rank
   var moves = {};         // id -> { dir:'up'|'down', until:time }
   var flashes = {};       // id -> until time
-  var lastOk = 0, online = false, firstLoad = true;
+  var lastOk = 0, online = false, firstLoad = true, havePolled = false;
+  var leaderNow = null, leaderPrev = null, leaderSince = 0;
 
   function poll() {
     fetch(API, { cache: 'no-store' }).then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     }).then(function (json) {
-      var next = {};
+      var next = {}, nextTotals = {}, nextFavs = {}, nextPicks = {};
       (json.data || []).forEach(function (row) {
-        if (!byId[row.contestant_id]) return;          // skip picks / favourites rows
-        var s = row.scores || {};
-        var t = roster.fields.reduce(function (sum, f) { return sum + (Number(s[f[0]]) || 0); }, 0);
-        (next[row.contestant_id] = next[row.contestant_id] || {})[row.judge] = t;
+        var id = row.contestant_id, s = row.scores || {};
+        if (id.indexOf('FAV_') === 0) { if (s.fav && byId[s.fav]) nextFavs[id.slice(4)] = s.fav; return; }
+        if (id.indexOf('PICKS_') === 0) { nextPicks[id.slice(6)] = s; return; }
+        if (!byId[id]) return;
+        var card = {}, t = 0;
+        roster.fields.forEach(function (f) { var v = Number(s[f[0]]) || 0; card[f[0]] = v; t += v; });
+        (next[id] = next[id] || {})[row.judge] = card;
+        (nextTotals[id] = nextTotals[id] || {})[row.judge] = t;
       });
-      totals = next; online = true; lastOk = Date.now();
+      var votes = havePolled ? diffVotes(raw, next) : [];
+      raw = next; totals = nextTotals; favs = nextFavs; picks = nextPicks;
+      online = true; lastOk = Date.now(); havePolled = true;
       render();
+      announce(votes);
+      if (mode === 'recap') renderRecap();
     }).catch(function () { online = false; renderFoot(); });
   }
 
-  function entries() {
+  // Every category score that changed since the last check = one "vote".
+  function diffVotes(before, after) {
+    var out = [];
+    Object.keys(after).forEach(function (id) {
+      Object.keys(after[id]).forEach(function (j) {
+        var a = after[id][j], b = (before[id] || {})[j] || {};
+        roster.fields.forEach(function (f) {
+          var was = Number(b[f[0]]) || 0, now = a[f[0]];
+          if (now && now !== was) out.push({ id: id, judge: j, field: f[0], label: f[1], was: was, v: now, t: Date.now() });
+        });
+      });
+    });
+    return out;
+  }
+
+  function scoreOf(id, j, f) { return ((raw[id] || {})[j] || {})[f] || 0; }
+  function allEntries() {
     var J = roster.judges;
     return roster.candidates.map(function (c) {
       var t = totals[c.id] || {};
       var sum = 0; J.forEach(function (j) { sum += t[j] || 0; });
       return { c: c, t: t, avg: sum / J.length };
-    }).filter(function (x) { return x.avg > 0; })
+    });
+  }
+  function entries() {
+    return allEntries().filter(function (x) { return x.avg > 0; })
       .sort(function (a, b) { return b.avg - a.avg || a.c.i - b.c.i; });
   }
 
@@ -116,6 +147,8 @@
       prevAvg[id] = x.avg; prevRank[id] = r;
     });
     if (list.length) firstLoad = false;
+    var lid = list[0] ? list[0].c.id : null;
+    if (lid && lid !== leaderNow) { if (leaderNow && havePolled) { leaderPrev = leaderNow; leaderSince = now; } leaderNow = lid; }
 
     var mv = function (id) {
       var m = moves[id]; if (!m || m.until < now) return '';
@@ -305,41 +338,198 @@
   }
 
   /* =====================================================================
-   * RECAP — the judging site's own Recap page, shown full screen
+   * VOTE POP-UPS — "Olly voted Débora Santos a 10 for Swimwear"
    * ===================================================================== */
-  var RECAP_CSS = '#roleModal,header,.sidebar,.topline,#toast,#fireworksCanvas,.page-actions{display:none!important}' +
-    '.layout{display:block!important;max-width:none!important;padding:0!important;margin:0!important}' +
-    '.main{max-width:none!important;margin:0!important;padding:24px 28px 28vw!important}' +
-    'html,body{overflow-x:hidden!important}';
-  var recapScroller = null;
+  var feed = store.get('feed', []);   // latest votes, newest first (shown in the Recap)
+  var voteQueue = [], voteBusy = false;
 
-  function openRecap() {
-    setMode('recap');
-    var f = $('recapFrame');
-    $('recapMsg').innerHTML = '<div><b>Loading recap…</b></div>'; $('recapMsg').classList.add('on');
-    f.onload = function () {
-      try {
-        var w = f.contentWindow, d = w.document;
-        if (typeof w.go !== 'function') throw new Error('no recap');
-        var st = d.createElement('style'); st.textContent = RECAP_CSS; d.head.appendChild(st);
-        w.go('recap');
-        var main = d.querySelector('.main');
-        recapScroller = main && main.scrollHeight > main.clientHeight + 10 && /auto|scroll/.test(w.getComputedStyle(main).overflowY) ? main : (d.scrollingElement || d.documentElement);
-        $('recapMsg').classList.remove('on');
-      } catch (e) {
-        $('recapMsg').innerHTML = '<div><b>Recap unavailable</b>Couldn’t open the recap page on globe2026.ollpot.life.<small>Press Back to return.</small></div>';
-      }
+  function announce(votes) {
+    if (!votes.length) return;
+    feed = votes.slice().reverse().concat(feed).slice(0, 40); store.set('feed', feed);
+    // "Sync all" or a reset can change dozens of scores at once: summarise those.
+    var byJudge = {};
+    votes.forEach(function (v) { (byJudge[v.judge] = byJudge[v.judge] || []).push(v); });
+    Object.keys(byJudge).forEach(function (j) {
+      var vs = byJudge[j];
+      if (vs.length > 6) voteQueue.push({ bulk: true, judge: j, n: vs.length });
+      else vs.forEach(function (v) { voteQueue.push(v); });
+    });
+    if (voteQueue.length > 10) voteQueue = voteQueue.slice(-10);
+    nextVote();
+  }
+  function nextVote() {
+    if (voteBusy || !voteQueue.length) return;
+    var v = voteQueue.shift(), el = $('vote');
+    voteBusy = true;
+    el.innerHTML = voteHtml(v);
+    el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+    setTimeout(function () {
+      el.classList.remove('on');
+      setTimeout(function () { voteBusy = false; nextVote(); }, 500);
+    }, voteQueue.length ? 3500 : 5500);
+  }
+  function rankLine(id) {
+    var list = entries(), max = roster.fields.length * 10;
+    for (var i = 0; i < list.length; i++) if (list[i].c.id === id) return 'Now #' + (i + 1) + ' · ' + list[i].avg.toFixed(1) + ' / ' + max;
+    return '';
+  }
+  function voteHtml(v) {
+    if (v.bulk) return '<img src="logo.png" alt=""><div class="vt"><div class="vk">Score sync</div>' +
+      '<div class="vl"><b>' + esc(v.judge) + '</b> updated ' + v.n + ' scores</div></div>';
+    var c = byId[v.id];
+    return photo(c) + '<div class="vt"><div class="vk">' + (v.was ? 'Score changed' : 'New vote') + ' · ' + esc(v.label) + '</div>' +
+      '<div class="vl"><b>' + esc(v.judge) + '</b> voted <b>' + esc(c.name) + '</b> a <b class="vn">' + v.v + '</b> for <b>' + esc(v.label) + '</b>' +
+      (v.was ? ' <span class="vw">(was ' + v.was + ')</span>' : '') + '</div>' +
+      '<div class="vr">' + flag(c) + esc(c.country) + ' · ' + rankLine(v.id) + '</div></div>' +
+      '<div class="vs' + (v.v >= 10 ? ' ten' : '') + '">' + v.v + '</div>';
+  }
+
+  /* =====================================================================
+   * RECAP — built for the TV from the judging data, two pages (▲ ▼)
+   * ===================================================================== */
+  var recapPage = 0, RECAP_PAGES = 2, recapTouched = 0;
+  function openRecap() { recapPage = 0; recapTouched = Date.now(); setMode('recap'); renderRecap(); }
+  function closeRecap() { setMode('main'); }
+  function recapTurn(d) { recapPage = (recapPage + d + RECAP_PAGES) % RECAP_PAGES; recapTouched = Date.now(); renderRecap(); }
+  setInterval(function () { if (mode === 'recap' && Date.now() - recapTouched > 30000) recapTurn(1); }, 1000);
+
+  function f1(n) { return (Math.round(n * 10) / 10).toFixed(1).replace(/\.0$/, ''); }
+  function ago(t) { var s = Math.max(0, (Date.now() - t) / 1000); return s < 45 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : Math.round(s / 3600) + ' h ago'; }
+  function nm(c) { return esc(c.name) + ' (' + flag(c) + esc(c.country) + ')'; }
+
+  function recapData() {
+    var J = roster.judges, F = roster.fields, all = allEntries(), list = entries(), rank = {};
+    list.forEach(function (x, i) { rank[x.c.id] = i + 1; });
+    var entered = 0;
+    all.forEach(function (x) { J.forEach(function (j) { F.forEach(function (f) { if (scoreOf(x.c.id, j, f[0])) entered++; }); }); });
+    var joint = function (id, f) { var s = 0; J.forEach(function (j) { s += scoreOf(id, j, f); }); return s / J.length; };
+    var catLead = F.map(function (f) {
+      var best = null;
+      all.forEach(function (x) { var v = joint(x.c.id, f[0]); if (v > 0 && (!best || v > best.v)) best = { x: x, v: v }; });
+      return { f: f, x: best && best.x, v: best ? best.v : 0 };
+    });
+    var p = function (j, k) { return ((picks[j] || {})[k]) || []; };
+    var agree5 = J.length > 1 ? p(J[0], 'top5').filter(function (id) { return p(J[1], 'top5').indexOf(id) >= 0; }).length : 0;
+    return {
+      J: J, F: F, MAX: F.length * 10, all: all, list: list, rank: rank, joint: joint, catLead: catLead, p: p, agree5: agree5,
+      entered: entered, maxEntered: all.length * J.length * F.length,
+      both: all.filter(function (x) { return J.every(function (j) { return x.t[j] > 0; }); }),
+      fieldAvg: list.length ? list.reduce(function (s, x) { return s + x.avg; }, 0) / list.length : 0
     };
-    f.src = SITE + '/?tv=recap&t=' + Date.now();
   }
-  function closeRecap() {
-    $('recapFrame').src = 'about:blank'; recapScroller = null;
-    setMode('main');
+
+  function lede(d) {
+    var L = d.list[0], pct = d.entered / d.maxEntered, P = Math.round(pct * 100), k, t, b;
+    if (!L) return { k: 'Before the sash', t: 'The stage is set', b: d.all.length + ' delegates, ' + d.F.length + ' categories, ' + d.J.length + ' judges — and not a single score yet. The first vote writes the first headline.' };
+    var S = d.list[1], gap = S ? L.avg - S.avg : 0;
+    if (pct < 0.25) { k = 'Early days · ' + P + '% scored'; t = esc(L.c.name) + ' sets the early pace'; }
+    else if (pct < 0.75) { k = 'The race takes shape · ' + P + '% scored'; t = esc(L.c.name) + ' leads a field finding its order'; }
+    else if (pct < 1) { k = 'Final stretch · ' + P + '% scored'; t = esc(L.c.name) + ' is in the box seat'; }
+    else { k = 'All scores in'; t = esc(L.c.name) + ' tops the judging'; }
+    b = nm(L.c) + ' leads on ' + f1(L.avg) + ' / ' + d.MAX + (S ? (gap > 0 ? ', ' + f1(gap) + ' clear of ' + esc(S.c.name) : ', level with ' + esc(S.c.name)) : '') + '.' +
+      (d.list[2] ? ' ' + esc(d.list[2].c.name) + ' completes the podium on ' + f1(d.list[2].avg) + '.' : '');
+    return { k: k, t: t, b: b };
   }
-  function scrollRecap(dir) {
-    if (!recapScroller) return;
-    var h = $('recapFrame').clientHeight * 0.45;
-    try { recapScroller.scrollBy({ top: dir * h, behavior: 'smooth' }); } catch (e) { recapScroller.scrollTop += dir * h; }
+
+  // Storylines, following the same rules as the judging site's Recap.
+  function stories(d) {
+    var S = [], add = function (o) { S.push(o); }, J = d.J, list = d.list, MAX = d.MAX, now = Date.now();
+    var A = J[0], B = J[1];
+    if (list.length === 1) add({ p: 100, k: 'First on the board', t: esc(list[0].c.name) + ' sets the pace', b: nm(list[0].c) + ' is the only delegate scored so far, on ' + f1(list[0].avg) + ' / ' + MAX + '.', c: list[0].c });
+    if (list.length >= 2) {
+      var a = list[0], b2 = list[1], m = a.avg - b2.avg;
+      var kk = m === 0 ? 'Dead heat' : m < 1 ? 'Photo finish' : m < 3 ? 'Leader' : 'Runaway leader';
+      var tt = m === 0 ? esc(a.c.name) + ' and ' + esc(b2.c.name) + ' can’t be split' : m < 1 ? esc(a.c.name) + ' leads by a whisker' : m < 3 ? esc(a.c.name) + ' edges ahead' : esc(a.c.name) + ' is pulling away';
+      add({ p: 100, k: kk, t: tt, b: nm(a.c) + ' leads on ' + f1(a.avg) + ' / ' + MAX + (m > 0 ? ', ' + f1(m) + ' clear of ' + esc(b2.c.name) : ', level with ' + esc(b2.c.name)) + '.', c: a.c });
+    }
+    if (leaderPrev && leaderNow && leaderPrev !== leaderNow && now - leaderSince < 20 * 60000 && byId[leaderPrev]) {
+      add({ p: 98, k: 'Change at the top · ' + ago(leaderSince), t: esc(byId[leaderNow].name) + ' takes the lead', b: esc(byId[leaderNow].name) + ' has overtaken ' + nm(byId[leaderPrev]) + ' at the top of the leaderboard.', c: byId[leaderNow] });
+    }
+    var last = feed[0];
+    if (last && now - last.t < 30 * 60000 && byId[last.id]) {
+      add({ p: 96, k: 'Just in · ' + ago(last.t), t: esc(last.judge) + ' gives ' + esc(byId[last.id].name) + ' a ' + last.v, b: 'A ' + last.v + ' for ' + esc(last.label) + (last.was ? ', up from ' + last.was : '') + '. ' + rankLine(last.id) + '.', c: byId[last.id] });
+    }
+    if (B && d.both.length) {
+      var s = d.both.slice().sort(function (x, y) { return Math.abs(y.t[A] - y.t[B]) - Math.abs(x.t[A] - x.t[B]); })[0], gap = Math.abs(s.t[A] - s.t[B]);
+      if (gap >= 5) { var hi = s.t[A] > s.t[B] ? A : B, lo = hi === A ? B : A; add({ p: 90, k: 'Split decision', t: 'The judges can’t agree on ' + esc(s.c.name), b: esc(hi) + ' has ' + nm(s.c) + ' on ' + s.t[hi] + ', ' + esc(lo) + ' on ' + s.t[lo] + ' — a ' + gap + '-point gap.', c: s.c }); }
+      var same = d.both.filter(function (x) { return x.t[A] === x.t[B] && x.t[A] >= MAX * 0.7; }).sort(function (x, y) { return y.t[A] - x.t[A]; })[0];
+      if (same) add({ p: 60, k: 'Of one mind', t: 'Total agreement on ' + esc(same.c.name), b: esc(A) + ' and ' + esc(B) + ' both landed on exactly ' + same.t[A] + ' / ' + MAX + ' for ' + nm(same.c) + '.', c: same.c });
+      var ea = 0, ob = 0, n = 0;
+      d.all.forEach(function (x) { d.F.forEach(function (f) { var u = scoreOf(x.c.id, A, f[0]), w = scoreOf(x.c.id, B, f[0]); if (u && w) { ea += u; ob += w; n++; } }); });
+      if (n >= 5 && Math.abs(ea - ob) / n >= 0.4) { var tough = ea < ob ? A : B, kind = tough === A ? B : A; add({ p: 70, k: 'Tough marker', t: esc(tough) + ' is the harder judge', b: esc(tough) + ' averages ' + f1((tough === A ? ea : ob) / n) + ' per category against ' + esc(kind) + '’s ' + f1((tough === A ? ob : ea) / n) + '.' }); }
+    }
+    var wins = {};
+    d.catLead.forEach(function (cl) { if (cl.x) (wins[cl.x.c.id] = wins[cl.x.c.id] || []).push(cl.f[1]); });
+    var multi = Object.keys(wins).filter(function (id) { return wins[id].length >= 2; }).sort(function (x, y) { return wins[y].length - wins[x].length; })[0];
+    if (multi) add({ p: 85, k: wins[multi].length >= 3 ? 'Triple threat' : 'Double threat', t: esc(byId[multi].name) + ' rules ' + wins[multi].length + ' categories', b: 'Top joint score in ' + wins[multi].map(esc).join(', ') + '.', c: byId[multi] });
+    if (list.length >= 8) {
+      var dh = d.catLead.filter(function (cl) { return cl.x && (d.rank[cl.x.c.id] || 99) > 5; }).sort(function (x, y) { return y.v - x.v; })[0];
+      if (dh) add({ p: 75, k: 'Dark horse', t: esc(dh.x.c.name) + ' owns ' + esc(dh.f[1]), b: 'Nobody beats her ' + f1(dh.v) + ' in ' + esc(dh.f[1]) + ', yet ' + nm(dh.x.c) + ' sits #' + d.rank[dh.x.c.id] + ' overall.', c: dh.x.c });
+    }
+    var tens = {}, nt = 0;
+    d.all.forEach(function (x) { J.forEach(function (j) { d.F.forEach(function (f) { if (scoreOf(x.c.id, j, f[0]) === 10) { nt++; tens[x.c.id] = (tens[x.c.id] || 0) + 1; } }); }); });
+    if (nt) { var tt10 = Object.keys(tens).sort(function (x, y) { return tens[y] - tens[x]; })[0]; add({ p: 65, k: 'Perfect tens', t: nt + ' perfect ' + (nt === 1 ? 'ten' : 'tens') + ' so far', b: esc(byId[tt10].name) + ' has collected the most, with ' + tens[tt10] + '.', c: byId[tt10] }); }
+    if (B && favs[A] && favs[A] === favs[B]) add({ p: 88, k: 'Shared favourite', t: 'Both judges have fallen for ' + esc(byId[favs[A]].name), b: esc(A) + ' and ' + esc(B) + ' have both starred ' + nm(byId[favs[A]]) + '.', c: byId[favs[A]] });
+    else J.forEach(function (j) { var id = favs[j]; if (id && d.rank[id] === 1) add({ p: 68, k: esc(j) + '’s favourite', t: 'Heart and head agree', b: esc(j) + '’s favourite ' + nm(byId[id]) + ' is also leading the scores.', c: byId[id] }); });
+    if (list.length > 20) { var a20 = list[19], b21 = list[20], g20 = a20.avg - b21.avg; add({ p: g20 < 1 ? 78 : 56, k: 'Top 20 bubble', t: g20 < 1 ? esc(b21.c.name) + ' is knocking on the door' : 'The Top 20 line sits at ' + f1(a20.avg), b: '#20 ' + esc(a20.c.name) + ' (' + f1(a20.avg) + ') holds off #21 ' + esc(b21.c.name) + ' (' + f1(b21.avg) + ').', c: b21.c }); }
+    if (B && d.p(A, 'top20').length && d.p(B, 'top20').length) { var sh = d.p(A, 'top20').filter(function (id) { return d.p(B, 'top20').indexOf(id) >= 0; }).length; add({ p: 57, k: 'Ballot watch', t: esc(A) + ' and ' + esc(B) + ' share ' + sh + ' of their Top 20', b: d.agree5 + ' of 5 names match on the Top 5 shortlists so far.' }); }
+    var none = d.all.filter(function (x) { return x.avg === 0; }).length;
+    if (list.length && none) add({ p: 45, k: 'Waiting in the wings', t: none + ' delegate' + (none === 1 ? '' : 's') + ' still unscored', b: list.length + ' of ' + d.all.length + ' delegates have at least one score.' });
+    return S.sort(function (x, y) { return y.p - x.p; });
+  }
+
+  function personRow(x, i, d) {
+    return '<div class="rc-row">' + (i != null ? '<span class="rc-rk">' + (i + 1) + '</span>' : '') + photo(x.c) +
+      '<div class="rc-who"><b>' + esc(x.c.name) + '</b><span>' + flag(x.c) + esc(x.c.country) + '</span>' + judgesHtml(x) + '</div>' +
+      '<span class="rc-sc">' + x.avg.toFixed(1) + '</span></div>';
+  }
+
+  function renderRecap() {
+    var d = recapData(), L = lede(d), html;
+    $('rcPage').textContent = (recapPage + 1) + ' / ' + RECAP_PAGES + ' · ▲ ▼ change page · Back to return';
+    if (recapPage === 0) {
+      var tiles = [
+        [d.list[0] ? d.list[0].avg.toFixed(1) : '—', 'Leader / ' + d.MAX],
+        [d.fieldAvg ? d.fieldAvg.toFixed(1) : '—', 'Field average'],
+        [d.both.length + '', 'Fully scored'],
+        [Math.round(d.entered / d.maxEntered * 100) + '%', 'Scores entered'],
+        [d.agree5 + ' / 5', 'Top 5 agreement']
+      ].map(function (t) { return '<div class="rc-tile"><b>' + t[0] + '</b><span>' + t[1] + '</span></div>'; }).join('');
+      var top = d.list.slice(0, 5).map(function (x, i) { return personRow(x, i, d); }).join('') || '<div class="rc-empty">Scores appear here once judging begins.</div>';
+      var cats = d.catLead.map(function (cl) {
+        return '<div class="rc-cat">' + (cl.x ? photo(cl.x.c) : '<img src="logo.png" alt="">') + '<div class="rc-who"><span class="rc-catn">' + esc(cl.f[1]) + '</span><b>' + (cl.x ? esc(cl.x.c.name) : 'Awaiting scores') + '</b>' +
+          (cl.x ? '<span>' + flag(cl.x.c) + esc(cl.x.c.country) + '</span>' : '') + '</div><span class="rc-sc">' + (cl.x ? f1(cl.v) : '—') + '</span></div>';
+      }).join('');
+      var wire = feed.filter(function (v) { return byId[v.id]; }).slice(0, 5).map(function (v) {
+        var c = byId[v.id];
+        return '<div class="rc-wire">' + photo(c) + '<div class="rc-who"><b>' + esc(v.judge) + ' → ' + esc(c.name) + '</b><span>' + esc(v.label) + ' · ' + ago(v.t) + '</span></div><span class="rc-vs' + (v.v >= 10 ? ' ten' : '') + '">' + v.v + '</span></div>';
+      }).join('') || '<div class="rc-empty">Votes appear here the moment either judge scores.</div>';
+      var favHtml = d.J.map(function (j) {
+        var c = favs[j] && byId[favs[j]];
+        return '<div class="rc-fav">' + (c ? photo(c) : '<img src="logo.png" alt="">') + '<div class="rc-who"><span class="rc-catn">★ ' + esc(j) + '’s favourite</span><b>' + (c ? esc(c.name) : 'Not chosen yet') + '</b>' + (c ? '<span>' + flag(c) + esc(c.country) + (d.rank[c.id] ? ' · #' + d.rank[c.id] : '') + '</span>' : '') + '</div></div>';
+      }).join('');
+      html = '<div class="rc-grid">' +
+        '<div class="rc-lede"><div class="rc-kick">' + L.k + '</div><h1>' + L.t + '</h1><p>' + L.b + '</p><div class="rc-tiles">' + tiles + '</div></div>' +
+        '<div class="rc-card rc-c1"><h3>Crown watch · Top 5</h3>' + top + '</div>' +
+        '<div class="rc-card rc-c2"><h3>Category leaders</h3>' + cats + '</div>' +
+        '<div class="rc-side"><div class="rc-card"><h3>Latest votes</h3>' + wire + '</div><div class="rc-card"><h3>Judges’ favourites</h3>' + favHtml + '</div></div>' +
+        '</div>';
+    } else {
+      var st = stories(d).slice(0, 6).map(function (s) {
+        return '<div class="rc-story">' + (s.c ? photo(s.c) : '') + '<div><div class="rc-kick">' + s.k + '</div><h4>' + s.t + '</h4><p>' + s.b + '</p></div></div>';
+      }).join('') || '<div class="rc-empty">Storylines appear as soon as the first scores are in.</div>';
+      var cover = d.J.map(function (j) {
+        var n = 0; d.all.forEach(function (x) { d.F.forEach(function (f) { if (scoreOf(x.c.id, j, f[0])) n++; }); });
+        var max = d.all.length * d.F.length, pc = Math.round(n / max * 100);
+        return '<div class="rc-cov"><div><b>' + esc(j) + '</b><span>' + n + ' / ' + max + ' · ' + pc + '%</span></div><i><u style="width:' + pc + '%"></u></i></div>';
+      }).join('');
+      var low = d.list.length > 5 ? d.list.slice(-5).reverse().map(function (x) { return personRow(x, d.rank[x.c.id] - 1, d); }).join('') : '<div class="rc-empty">Appears once more delegates are scored.</div>';
+      html = '<div class="rc-grid rc-p2">' +
+        '<div class="rc-card rc-stories"><h3>Storylines <small>rewrite themselves as votes land</small></h3><div class="rc-sgrid">' + st + '</div></div>' +
+        '<div class="rc-side"><div class="rc-card"><h3>Judge coverage</h3>' + cover + '</div><div class="rc-card"><h3>Pressure watch · Bottom 5</h3>' + low + '</div></div>' +
+        '</div>';
+    }
+    $('rcBody').innerHTML = html;
   }
 
   /* =====================================================================
@@ -461,8 +651,8 @@
     }
     if (mode === 'recap') {
       if (k === 'back' || k === 'menu') { closeRecap(); if (k === 'menu') openMenu(); return true; }
-      if (k === 'up') { scrollRecap(-1); return true; }
-      if (k === 'down') { scrollRecap(1); return true; }
+      if (k === 'up') { recapTurn(-1); return true; }
+      if (k === 'down') { recapTurn(1); return true; }
     }
     switch (k) {
       case 'ok': case 'playpause': togglePlay(); return true;
