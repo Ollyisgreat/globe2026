@@ -10,11 +10,29 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "life.ollpot.globe2026tv"
         minSdk = 22          // Fire OS 5 (Fire TV Stick 2nd gen) and newer
         targetSdk = 35
         versionCode = buildNumber
         versionName = "1.0.$buildNumber"
+    }
+
+    buildFeatures { buildConfig = true }
+
+    // Two apps from the same code: each has its own judging site, look and delegates.
+    flavorDimensions += "pageant"
+    productFlavors {
+        create("globe") {
+            dimension = "pageant"
+            applicationId = "life.ollpot.globe2026tv"
+            resValue("string", "app_name", "Miss Globe TV")
+            buildConfigField("String", "HOST", "\"globe2026.ollpot.life\"")
+        }
+        create("universe") {
+            dimension = "pageant"
+            applicationId = "life.ollpot.universe2026tv"
+            resValue("string", "app_name", "Miss Universe TV")
+            buildConfigField("String", "HOST", "\"mu2026.ollpot.life\"")
+        }
     }
 
     signingConfigs {

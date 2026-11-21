@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Miss Globe TV</title>
+<title>Pageant TV</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Inter:wght@400;600;700;800&display=swap">
 <link rel="stylesheet" href="tv.css">
@@ -37,7 +37,7 @@
     <div class="b-head">
       <img src="logo.png" alt="">
       <div class="b-titles">
-        <div class="b-kicker">The Miss Globe 2026</div>
+        <div class="b-kicker" data-txt>{title}</div>
         <div class="b-title">Live Scores</div>
       </div>
       <span class="b-live" id="live"><i></i>LIVE</span>
@@ -59,7 +59,7 @@
   <div class="panel">
     <div class="panel-head">
       <img src="logo.png" alt="">
-      <div><h2>Events</h2><p>Choose which Miss Globe show to watch. The scoreboard stays the same.</p></div>
+      <div><h2>Events</h2><p data-txt>Choose which {short} show to watch. The scoreboard stays the same.</p></div>
     </div>
     <div id="evList" class="ev-list"></div>
     <button id="evAdd" class="btn add" data-nav>+ Add an event</button>
@@ -68,7 +68,7 @@
     <div id="fileList" class="ev-list file-list"></div>
     <form id="evForm" class="ev-form" autocomplete="off">
       <h3 id="fHead">Add an event</h3>
-      <label>Name<input id="fName" data-nav placeholder="e.g. Miss Globe 2026 Final"></label>
+      <label>Name<input id="fName" data-nav data-txt placeholder="e.g. {short} 2026 Final"></label>
       <label>YouTube link or video ID<input id="fUrl" data-nav placeholder="https://youtu.be/…"></label>
       <div id="fErr" class="err"></div>
       <div class="btnrow">
@@ -85,6 +85,7 @@
 <div id="toast"></div>
 
 <script src="roster-parse.js"></script>
+<script src="config.js"></script>
 <script src="roster-fallback.js"></script>
 <script src="tv.js"></script>
 <script src="https://www.youtube.com/iframe_api" async></script>

@@ -47,9 +47,9 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Full-screen TV app.
+ * Full-screen TV app (Miss Globe TV or Miss Universe TV, see productFlavors).
  *
- * The TV page (app/src/main/assets) is served at https://globe2026.ollpot.life/__tv/
+ * The TV page (app/src/main/assets + the flavour's assets) is served at https://<HOST>/__tv/
  * straight from the APK, so it runs on the judging site's own origin: it can read
  * api.php, and YouTube sees a proper https referrer.
  *
@@ -58,7 +58,7 @@ import java.util.Set;
  * pop-ups and controls draw on top of it. The page drives it through window.Android.
  */
 public class MainActivity extends Activity {
-    static final String HOST = "globe2026.ollpot.life";
+    static final String HOST = BuildConfig.HOST;   // set per app in app/build.gradle.kts
     static final String START_URL = "https://" + HOST + "/__tv/index.html";
     static final int REQ_FILES = 7;
     static final String[] VIDEO_EXT = {".mp4", ".m4v", ".mkv", ".webm", ".mov", ".ts", ".avi", ".3gp"};

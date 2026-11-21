@@ -1,4 +1,4 @@
-/* Miss Globe TV — YouTube on the left, live judging scoreboard on the right.
+/* Pageant TV (Miss Globe / Miss Universe) — YouTube on the left, live judging scoreboard on the right.
  *
  * The page is served by the Android app at https://globe2026.ollpot.life/__tv/
  * (from the APK's assets), so it shares an origin with the judging site and
@@ -12,7 +12,14 @@
   'use strict';
 
   var SITE = location.origin;
-  var API = SITE + '/api.php?action=get&room=mg-2026';
+  var P = window.PAGEANT;                                   // per-app settings (config.js)
+  var API = SITE + '/api.php?action=get&room=' + encodeURIComponent(P.room);
+  document.documentElement.classList.add('theme-' + P.key);
+  document.title = P.short + ' TV';
+  Array.prototype.forEach.call(document.querySelectorAll('[data-txt]'), function (el) {
+    el.textContent = el.textContent.replace(/\{title\}/g, P.title).replace(/\{short\}/g, P.short);
+    if (el.placeholder) el.placeholder = el.placeholder.replace(/\{short\}/g, P.short);
+  });
   var POLL_MS = 5000;
   var native = window.Android || { setMode: function () {}, exitApp: function () {}, showKeyboard: function () {}, openYouTube: function () {} };
   var $ = function (id) { return document.getElementById(id); };
@@ -47,7 +54,13 @@
    * ===================================================================== */
   var roster = store.get('roster', null) || window.FALLBACK_ROSTER;
   var byId = {};
-  function indexRoster() { byId = {}; roster.candidates.forEach(function (c, i) { c.i = i; byId[c.id] = c; }); }
+  function indexRoster() {
+    byId = {};
+    roster.candidates.forEach(function (c, i) {
+      c.i = i; byId[c.id] = c;
+      if (c.photo && !/^(https?:|data:)/.test(c.photo)) c.photo = SITE + '/' + c.photo.replace(/^\.?\//, '');
+    });
+  }
   indexRoster();
 
   function loadRoster() {
@@ -131,7 +144,8 @@
     }).join('') + '</div>';
   }
   function photo(c, cls) {
-    return '<img decoding="async" ' + (cls ? 'class="' + cls + '" ' : '') + 'src="' + esc(c.photo || 'logo.png') + '" onerror="this.onerror=null;this.src=\'logo.png\'" alt="">';
+    var ph = P.placeholder || 'logo.png';
+    return '<img decoding="async" ' + (cls ? 'class="' + cls + '" ' : '') + 'src="' + esc(c && c.photo || ph) + '" onerror="this.onerror=null;this.src=\'' + ph + '\'" alt="">';
   }
 
   function render() {
@@ -219,13 +233,9 @@
   var events = store.get('events', []);
   var currentId = store.get('current', null);
 
-  // Built-in Miss Globe 2026 shows. Added once on first launch (or after an
+  // Built-in shows from config.js. Added once on first launch (or after an
   // update), skipping any the user already has; they can be edited or deleted.
-  var BUILT_IN = [
-    { id: 'mg26-final', name: 'Miss Globe 2026 · Final', videoId: 'Rtxqt4FCwSA' },
-    { id: 'mg26-swimsuit', name: 'Miss Globe 2026 · Swimsuit', videoId: 'xX6WihqaprQ' },
-    { id: 'mg26-semi', name: 'Miss Globe 2026 · Semi final', videoId: 'YmYxJ4uUBi4' }
-  ];
+  var BUILT_IN = P.builtIn || [];
   if (!store.get('builtInAdded', false)) {
     BUILT_IN.forEach(function (b) {
       if (events.some(function (e) { return e.videoId === b.videoId; })) return;
@@ -307,7 +317,7 @@
 
   function playCurrent(fromStart) {
     var ev = currentEvent();
-    if (!ev) { if (playerReady) player.stopVideo(); videoMsg('<div><b>No event chosen yet</b>Press ≡ Menu on the remote to add the Miss Globe YouTube link.</div>'); return; }
+    if (!ev) { if (playerReady) player.stopVideo(); videoMsg('<div><b>No event chosen yet</b>Press ≡ Menu on the remote to add the ' + esc(P.short) + ' YouTube link.</div>'); return; }
     var p = progress[ev.videoId], start = 0;
     if (!fromStart && p && p.t > 15 && (!p.d || p.t < p.d - 30)) start = Math.floor(p.t - 3);
     if (fromStart) { delete progress[ev.videoId]; store.set('progress', progress); }
@@ -517,7 +527,9 @@
     if (voteBusy || !voteQueue.length) return;
     var v = voteQueue.shift(), el = $('vote');
     voteBusy = true;
-    el.innerHTML = voteHtml(v);
+    // With an announcer (Miss Universe), she pops into the corner and the vote is her speech bubble.
+    el.innerHTML = P.announcer ? '<img class="ann" src="' + esc(P.announcer.img) + '" alt=""><div class="bubble">' + voteHtml(v) + '</div>' : voteHtml(v);
+    el.classList.toggle('announce', !!P.announcer);
     el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
     setTimeout(function () {
       el.classList.remove('on');
@@ -533,7 +545,9 @@
     if (v.bulk) return '<img src="logo.png" alt=""><div class="vt"><div class="vk">Score sync</div>' +
       '<div class="vl"><b>' + esc(v.judge) + '</b> updated ' + v.n + ' scores</div></div>';
     var c = byId[v.id];
-    return photo(c) + '<div class="vt"><div class="vk">' + (v.was ? 'Score changed' : 'New vote') + ' · ' + esc(v.label) + '</div>' +
+    var kick = (v.was ? 'Score changed' : 'New vote') + ' · ' + esc(v.label);
+    if (P.announcer) kick = '<span class="mic">🎤 ' + esc(P.announcer.name) + '</span> · ' + kick;
+    return photo(c) + '<div class="vt"><div class="vk">' + kick + '</div>' +
       '<div class="vl"><b>' + esc(v.judge) + '</b> voted <b>' + esc(c.name) + '</b> a <b class="vn">' + v.v + '</b> for <b>' + esc(v.label) + '</b>' +
       (v.was ? ' <span class="vw">(was ' + v.was + ')</span>' : '') + '</div>' +
       '<div class="vr">' + flag(c) + esc(c.country) + ' · ' + rankLine(v.id) + '</div></div>' +
@@ -653,7 +667,7 @@
       ].map(function (t) { return '<div class="rc-tile"><b>' + t[0] + '</b><span>' + t[1] + '</span></div>'; }).join('');
       var top = d.list.slice(0, 5).map(function (x, i) { return personRow(x, i, d); }).join('') || '<div class="rc-empty">Scores appear here once judging begins.</div>';
       var cats = d.catLead.map(function (cl) {
-        return '<div class="rc-cat">' + (cl.x ? photo(cl.x.c) : '<img src="logo.png" alt="">') + '<div class="rc-who"><span class="rc-catn">' + esc(cl.f[1]) + '</span><b>' + (cl.x ? esc(cl.x.c.name) : 'Awaiting scores') + '</b>' +
+        return '<div class="rc-cat">' + (cl.x ? photo(cl.x.c) : '<img src="' + (P.placeholder || 'logo.png') + '" alt="">') + '<div class="rc-who"><span class="rc-catn">' + esc(cl.f[1]) + '</span><b>' + (cl.x ? esc(cl.x.c.name) : 'Awaiting scores') + '</b>' +
           (cl.x ? '<span>' + flag(cl.x.c) + esc(cl.x.c.country) + '</span>' : '') + '</div><span class="rc-sc">' + (cl.x ? f1(cl.v) : '—') + '</span></div>';
       }).join('');
       var wire = feed.filter(function (v) { return byId[v.id]; }).slice(0, 5).map(function (v) {
@@ -662,7 +676,7 @@
       }).join('') || '<div class="rc-empty">Votes appear here the moment either judge scores.</div>';
       var favHtml = d.J.map(function (j) {
         var c = favs[j] && byId[favs[j]];
-        return '<div class="rc-fav">' + (c ? photo(c) : '<img src="logo.png" alt="">') + '<div class="rc-who"><span class="rc-catn">★ ' + esc(j) + '’s favourite</span><b>' + (c ? esc(c.name) : 'Not chosen yet') + '</b>' + (c ? '<span>' + flag(c) + esc(c.country) + (d.rank[c.id] ? ' · #' + d.rank[c.id] : '') + '</span>' : '') + '</div></div>';
+        return '<div class="rc-fav">' + (c ? photo(c) : '<img src="' + (P.placeholder || 'logo.png') + '" alt="">') + '<div class="rc-who"><span class="rc-catn">★ ' + esc(j) + '’s favourite</span><b>' + (c ? esc(c.name) : 'Not chosen yet') + '</b>' + (c ? '<span>' + flag(c) + esc(c.country) + (d.rank[c.id] ? ' · #' + d.rank[c.id] : '') + '</span>' : '') + '</div></div>';
       }).join('');
       html = '<div class="rc-grid">' +
         '<div class="rc-lede"><div class="rc-kick">' + L.k + '</div><h1>' + L.t + '</h1><p>' + L.b + '</p><div class="rc-tiles">' + tiles + '</div></div>' +
@@ -711,7 +725,7 @@
         '<button class="btn" data-nav data-act="restart">⟲ Start over</button>' +
         '<button class="btn" data-nav data-act="edit">Edit</button>' +
         '<button class="btn" data-nav data-act="del">Delete</button></div>';
-    }).join('') : '<div class="empty-ev">No events yet. Add the YouTube link for the Miss Globe show you want to watch.</div>';
+    }).join('') : '<div class="empty-ev">No events yet. Add the YouTube link for the ' + esc(P.short) + ' show you want to watch.</div>';
   }
 
   $('evList').addEventListener('click', function (e) {
@@ -772,7 +786,7 @@
   function openForm(ev) {
     editingId = ev ? ev.id : null;
     $('fHead').textContent = ev ? 'Edit event' : 'Add an event';
-    $('fName').value = ev ? ev.name : (events.length ? '' : 'Miss Globe 2026');
+    $('fName').value = ev ? ev.name : (events.length ? '' : P.defaultEventName);
     $('fUrl').value = ev ? ev.url : '';
     $('fUrl').parentNode.style.display = ev && ev.type === 'file' ? 'none' : '';
     $('fErr').textContent = '';
