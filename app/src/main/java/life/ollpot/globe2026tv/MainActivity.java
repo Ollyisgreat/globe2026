@@ -47,9 +47,9 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Full-screen TV app (Miss Globe TV or Miss Universe TV, see productFlavors).
+ * Full-screen TV app: Miss Universe TV.
  *
- * The TV page (app/src/main/assets + the flavour's assets) is served at https://<HOST>/__tv/
+ * The TV page (app/src/main/assets) is served at https://<HOST>/__tv/
  * straight from the APK, so it runs on the judging site's own origin: it can read
  * api.php, and YouTube sees a proper https referrer.
  *

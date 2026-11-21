@@ -1,4 +1,4 @@
-/* Pageant TV (Miss Globe / Miss Universe) — YouTube on the left, live judging scoreboard on the right.
+/* Miss Universe TV — YouTube on the left, live judging scoreboard on the right.
  *
  * The page is served by the Android app at https://globe2026.ollpot.life/__tv/
  * (from the APK's assets), so it shares an origin with the judging site and

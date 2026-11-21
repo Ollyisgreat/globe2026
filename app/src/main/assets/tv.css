@@ -1,5 +1,5 @@
-/* Pageant TV — Miss Globe: black · red · white. Miss Universe: black · gold (see the
-   theme-universe block at the end). Matches each judging desk.
+/* Miss Universe TV — black and gold (theme-universe block at the end overrides the
+   base colours), matching the judging desk.
    1rem = 1% of the screen width, so everything scales with the TV. */
 
 :root{
